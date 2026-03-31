@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\OpenApiController;
+use App\Http\Controllers\Api\V1\TransactionController;
+use App\Http\Controllers\Api\V1\WalletController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -17,5 +20,12 @@ Route::prefix('v1')->group(function () {
             Route::put('/user', [AuthController::class, 'updateProfile']);
             Route::put('/password', [AuthController::class, 'updatePassword']);
         });
+    });
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::apiResource('wallets', WalletController::class);
+        Route::apiResource('categories', CategoryController::class);
+        Route::get('transactions/summary', [TransactionController::class, 'summary']);
+        Route::apiResource('transactions', TransactionController::class);
     });
 });
