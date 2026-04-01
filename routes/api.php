@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\OpenApiController;
+use App\Http\Controllers\Api\V1\RecurringTransactionController;
 use App\Http\Controllers\Api\V1\TransactionController;
 use App\Http\Controllers\Api\V1\WalletController;
 use Illuminate\Support\Facades\Route;
@@ -27,5 +30,14 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('categories', CategoryController::class);
         Route::get('transactions/summary', [TransactionController::class, 'summary']);
         Route::apiResource('transactions', TransactionController::class);
+
+        Route::get('budgets/overview', [BudgetController::class, 'overview']);
+        Route::apiResource('budgets', BudgetController::class);
+
+        Route::post('recurring-transactions/{recurringTransaction}/skip', [RecurringTransactionController::class, 'skip']);
+        Route::post('recurring-transactions/{recurringTransaction}/process', [RecurringTransactionController::class, 'processNow']);
+        Route::apiResource('recurring-transactions', RecurringTransactionController::class);
+
+        Route::get('/dashboard', [DashboardController::class, 'dashboard']);
     });
 });

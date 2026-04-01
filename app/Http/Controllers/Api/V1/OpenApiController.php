@@ -446,6 +446,265 @@ class OpenApiController extends Controller
                         ],
                     ],
                 ],
+                '/v1/budgets/overview' => [
+                    'get' => [
+                        'summary' => 'Get budget overview',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [
+                            ['name' => 'period', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['weekly', 'monthly', 'yearly'], 'default' => 'monthly'], 'description' => 'Budget period filter'],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Budget overview with all budgets and their spending stats'],
+                            '401' => ['description' => 'Unauthenticated'],
+                        ],
+                    ],
+                ],
+                '/v1/budgets' => [
+                    'get' => [
+                        'summary' => 'List budgets',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [
+                            ['name' => 'period', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['weekly', 'monthly', 'yearly']], 'description' => 'Filter by period type'],
+                            ['name' => 'is_active', 'in' => 'query', 'schema' => ['type' => 'boolean'], 'description' => 'Filter active budgets'],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'List of budgets with spending stats'],
+                            '401' => ['description' => 'Unauthenticated'],
+                        ],
+                    ],
+                    'post' => [
+                        'summary' => 'Create a budget',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['name', 'amount', 'period', 'start_date', 'category_ids'],
+                                        'properties' => [
+                                            'name' => ['type' => 'string', 'maxLength' => 255, 'example' => 'Monthly Food Budget'],
+                                            'amount' => ['type' => 'number', 'minimum' => 0.01, 'example' => 2000000],
+                                            'period' => ['type' => 'string', 'enum' => ['weekly', 'monthly', 'yearly'], 'example' => 'monthly'],
+                                            'start_date' => ['type' => 'string', 'format' => 'date', 'example' => '2026-04-01'],
+                                            'end_date' => ['type' => 'string', 'format' => 'date', 'description' => 'Auto-calculated if not provided'],
+                                            'category_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'example' => [1, 2]],
+                                            'wallet_id' => ['type' => 'integer', 'description' => 'Optional wallet filter'],
+                                            'alert_threshold' => ['type' => 'number', 'minimum' => 0, 'maximum' => 100, 'example' => 80, 'description' => 'Percentage threshold for alerts'],
+                                            'description' => ['type' => 'string', 'maxLength' => 500],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '201' => ['description' => 'Budget created successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '422' => ['description' => 'Validation error or duplicate budget'],
+                        ],
+                    ],
+                ],
+                '/v1/budgets/{budget}' => [
+                    'get' => [
+                        'summary' => 'Get budget details with spending stats',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'budget', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Budget details with spending stats'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                        ],
+                    ],
+                    'put' => [
+                        'summary' => 'Update budget',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'budget', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'name' => ['type' => 'string', 'maxLength' => 255],
+                                            'amount' => ['type' => 'number', 'minimum' => 0.01],
+                                            'period' => ['type' => 'string', 'enum' => ['weekly', 'monthly', 'yearly']],
+                                            'start_date' => ['type' => 'string', 'format' => 'date'],
+                                            'end_date' => ['type' => 'string', 'format' => 'date'],
+                                            'category_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                                            'wallet_id' => ['type' => 'integer'],
+                                            'alert_threshold' => ['type' => 'number', 'minimum' => 0, 'maximum' => 100],
+                                            'is_active' => ['type' => 'boolean'],
+                                            'description' => ['type' => 'string', 'maxLength' => 500],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Budget updated successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                            '422' => ['description' => 'Validation error'],
+                        ],
+                    ],
+                    'delete' => [
+                        'summary' => 'Delete budget',
+                        'tags' => ['Budgets'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'budget', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Budget deleted successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                        ],
+                    ],
+                ],
+                '/v1/recurring-transactions' => [
+                    'get' => [
+                        'summary' => 'List recurring transactions',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [
+                            ['name' => 'is_active', 'in' => 'query', 'schema' => ['type' => 'boolean'], 'description' => 'Filter active recurring transactions'],
+                            ['name' => 'type', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer']], 'description' => 'Filter by type'],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'List of recurring transactions'],
+                            '401' => ['description' => 'Unauthenticated'],
+                        ],
+                    ],
+                    'post' => [
+                        'summary' => 'Create recurring transaction',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['wallet_id', 'type', 'amount', 'frequency', 'start_date'],
+                                        'properties' => [
+                                            'wallet_id' => ['type' => 'integer', 'example' => 1],
+                                            'category_id' => ['type' => 'integer', 'nullable' => true],
+                                            'type' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer'], 'example' => 'expense'],
+                                            'amount' => ['type' => 'number', 'minimum' => 0.01, 'example' => 500000],
+                                            'description' => ['type' => 'string', 'maxLength' => 500, 'example' => 'Monthly rent'],
+                                            'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'yearly'], 'example' => 'monthly'],
+                                            'start_date' => ['type' => 'string', 'format' => 'date', 'example' => '2026-04-01'],
+                                            'end_date' => ['type' => 'string', 'format' => 'date', 'description' => 'Optional end date'],
+                                            'destination_wallet_id' => ['type' => 'integer', 'description' => 'Required when type is transfer'],
+                                            'auto_create' => ['type' => 'boolean', 'default' => true, 'description' => 'Auto-create transactions'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '201' => ['description' => 'Recurring transaction created successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '422' => ['description' => 'Validation error'],
+                        ],
+                    ],
+                ],
+                '/v1/recurring-transactions/{recurringTransaction}' => [
+                    'get' => [
+                        'summary' => 'Get recurring transaction details',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'recurringTransaction', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Recurring transaction details'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                        ],
+                    ],
+                    'put' => [
+                        'summary' => 'Update recurring transaction',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'recurringTransaction', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'amount' => ['type' => 'number', 'minimum' => 0.01],
+                                            'description' => ['type' => 'string', 'maxLength' => 500],
+                                            'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'yearly']],
+                                            'end_date' => ['type' => 'string', 'format' => 'date'],
+                                            'is_active' => ['type' => 'boolean'],
+                                            'auto_create' => ['type' => 'boolean'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Recurring transaction updated successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                            '422' => ['description' => 'Validation error'],
+                        ],
+                    ],
+                    'delete' => [
+                        'summary' => 'Delete recurring transaction',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'recurringTransaction', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Recurring transaction deleted successfully'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                        ],
+                    ],
+                ],
+                '/v1/recurring-transactions/{recurringTransaction}/skip' => [
+                    'post' => [
+                        'summary' => 'Skip next occurrence',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'recurringTransaction', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Next occurrence skipped'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                        ],
+                    ],
+                ],
+                '/v1/recurring-transactions/{recurringTransaction}/process' => [
+                    'post' => [
+                        'summary' => 'Process recurring transaction now',
+                        'tags' => ['Recurring Transactions'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'recurringTransaction', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Recurring transaction processed, transaction created'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '403' => ['description' => 'Forbidden'],
+                            '422' => ['description' => 'Cannot process inactive or expired recurring transaction'],
+                        ],
+                    ],
+                ],
+                '/v1/dashboard' => [
+                    'get' => [
+                        'summary' => 'Get dashboard data',
+                        'tags' => ['Dashboard'],
+                        'security' => [['BearerAuth' => []]],
+                        'responses' => [
+                            '200' => ['description' => 'Dashboard with balance, month summary, trends, budget alerts, recent transactions'],
+                            '401' => ['description' => 'Unauthenticated'],
+                        ],
+                    ],
+                ],
             ],
             'components' => [
                 'securitySchemes' => [
@@ -561,6 +820,107 @@ class OpenApiController extends Controller
                                         'total' => ['type' => 'number'],
                                     ],
                                 ],
+                            ],
+                        ],
+                    ],
+                    'Budget' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer', 'example' => 1],
+                            'name' => ['type' => 'string', 'example' => 'Monthly Food Budget'],
+                            'amount' => ['type' => 'number', 'example' => 2000000],
+                            'spent' => ['type' => 'number', 'example' => 1500000],
+                            'remaining' => ['type' => 'number', 'example' => 500000],
+                            'percentage_used' => ['type' => 'number', 'example' => 75],
+                            'is_over_budget' => ['type' => 'boolean', 'example' => false],
+                            'period' => ['type' => 'string', 'enum' => ['weekly', 'monthly', 'yearly'], 'example' => 'monthly'],
+                            'start_date' => ['type' => 'string', 'format' => 'date'],
+                            'end_date' => ['type' => 'string', 'format' => 'date'],
+                            'days_remaining' => ['type' => 'integer', 'example' => 15],
+                            'is_active' => ['type' => 'boolean', 'example' => true],
+                            'alert_threshold' => ['type' => 'number', 'nullable' => true, 'example' => 80],
+                            'categories' => [
+                                'type' => 'array',
+                                'items' => ['$ref' => '#/components/schemas/Category'],
+                            ],
+                            'wallet' => ['$ref' => '#/components/schemas/Wallet'],
+                        ],
+                    ],
+                    'RecurringTransaction' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer', 'example' => 1],
+                            'type' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer'], 'example' => 'expense'],
+                            'amount' => ['type' => 'number', 'example' => 500000],
+                            'description' => ['type' => 'string', 'example' => 'Monthly rent'],
+                            'frequency' => ['type' => 'string', 'enum' => ['daily', 'weekly', 'monthly', 'yearly'], 'example' => 'monthly'],
+                            'start_date' => ['type' => 'string', 'format' => 'date'],
+                            'end_date' => ['type' => 'string', 'format' => 'date', 'nullable' => true],
+                            'next_date' => ['type' => 'string', 'format' => 'date', 'nullable' => true],
+                            'last_processed_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                            'is_active' => ['type' => 'boolean', 'example' => true],
+                            'auto_create' => ['type' => 'boolean', 'example' => true],
+                            'wallet' => ['$ref' => '#/components/schemas/Wallet'],
+                            'category' => ['$ref' => '#/components/schemas/Category'],
+                            'destination_wallet' => ['$ref' => '#/components/schemas/Wallet'],
+                        ],
+                    ],
+                    'Dashboard' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'total_balance' => ['type' => 'number', 'example' => 10000000],
+                            'month_summary' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'income' => ['type' => 'number'],
+                                    'expense' => ['type' => 'number'],
+                                    'net' => ['type' => 'number'],
+                                    'transaction_count' => ['type' => 'integer'],
+                                ],
+                            ],
+                            'category_breakdown' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'category_id' => ['type' => 'integer'],
+                                        'category_name' => ['type' => 'string'],
+                                        'total' => ['type' => 'number'],
+                                        'percentage' => ['type' => 'number'],
+                                    ],
+                                ],
+                            ],
+                            'budget_alerts' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'budget_id' => ['type' => 'integer'],
+                                        'name' => ['type' => 'string'],
+                                        'percentage_used' => ['type' => 'number'],
+                                        'is_over_budget' => ['type' => 'boolean'],
+                                    ],
+                                ],
+                            ],
+                            'recent_transactions' => [
+                                'type' => 'array',
+                                'items' => ['$ref' => '#/components/schemas/Transaction'],
+                            ],
+                            'monthly_trend' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'month' => ['type' => 'string', 'example' => '2026-03'],
+                                        'income' => ['type' => 'number'],
+                                        'expense' => ['type' => 'number'],
+                                        'net' => ['type' => 'number'],
+                                    ],
+                                ],
+                            ],
+                            'wallet_balances' => [
+                                'type' => 'array',
+                                'items' => ['$ref' => '#/components/schemas/Wallet'],
                             ],
                         ],
                     ],
