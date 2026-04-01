@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'wallet_id', 'category_id', 'type', 'amount', 'currency_code', 'description', 'merchant_name', 'next_due_date', 'last_processed', 'is_active', 'auto_create'])]
+#[Fillable(['user_id', 'wallet_id', 'category_id', 'type', 'amount', 'currency_code', 'frequency', 'description', 'merchant_name', 'next_due_date', 'last_processed', 'is_active', 'auto_create'])]
 class RecurringTransaction extends Model
 {
     protected $attributes = [
