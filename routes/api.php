@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -39,5 +40,14 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('recurring-transactions', RecurringTransactionController::class);
 
         Route::get('/dashboard', [DashboardController::class, 'dashboard']);
+
+        Route::middleware('throttle:ai')->prefix('ai')->group(function () {
+            Route::post('/categorize', [AiController::class, 'categorize']);
+            Route::get('/insights', [AiController::class, 'insights']);
+            Route::post('/chat', [AiController::class, 'chat']);
+            Route::get('/chat/sessions', [AiController::class, 'chatSessions']);
+            Route::get('/chat/sessions/{id}', [AiController::class, 'chatHistory']);
+            Route::delete('/chat/sessions/{id}', [AiController::class, 'deleteChatSession']);
+        });
     });
 });

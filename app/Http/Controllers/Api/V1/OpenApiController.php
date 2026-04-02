@@ -705,6 +705,111 @@ class OpenApiController extends Controller
                         ],
                     ],
                 ],
+                '/v1/ai/categorize' => [
+                    'post' => [
+                        'summary' => 'AI transaction categorization',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['description', 'amount', 'type'],
+                                        'properties' => [
+                                            'description' => ['type' => 'string', 'example' => 'Lunch at McDonalds'],
+                                            'merchant_name' => ['type' => 'string', 'nullable' => true, 'example' => 'McDonalds'],
+                                            'amount' => ['type' => 'number', 'example' => 50000],
+                                            'type' => ['type' => 'string', 'enum' => ['income', 'expense'], 'example' => 'expense'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'Category suggestion with confidence score'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '429' => ['description' => 'Rate limit exceeded'],
+                            '422' => ['description' => 'Validation error'],
+                        ],
+                    ],
+                ],
+                '/v1/ai/insights' => [
+                    'get' => [
+                        'summary' => 'Get AI financial insights',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'responses' => [
+                            '200' => ['description' => 'Array of financial insights'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '429' => ['description' => 'Rate limit exceeded'],
+                        ],
+                    ],
+                ],
+                '/v1/ai/chat' => [
+                    'post' => [
+                        'summary' => 'AI chat (SSE stream)',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'requestBody' => [
+                            'required' => true,
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['message'],
+                                        'properties' => [
+                                            'message' => ['type' => 'string', 'maxLength' => 2000, 'example' => 'How can I reduce my food expenses?'],
+                                            'session_id' => ['type' => 'integer', 'nullable' => true, 'description' => 'Existing session ID to continue conversation'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'responses' => [
+                            '200' => ['description' => 'SSE stream with AI response chunks'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '429' => ['description' => 'Rate limit exceeded'],
+                            '422' => ['description' => 'Validation error'],
+                        ],
+                    ],
+                ],
+                '/v1/ai/chat/sessions' => [
+                    'get' => [
+                        'summary' => 'List chat sessions',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'responses' => [
+                            '200' => ['description' => 'List of chat sessions'],
+                            '401' => ['description' => 'Unauthenticated'],
+                        ],
+                    ],
+                ],
+                '/v1/ai/chat/sessions/{id}' => [
+                    'get' => [
+                        'summary' => 'Get chat session messages',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Chat session with messages'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '404' => ['description' => 'Session not found'],
+                        ],
+                    ],
+                    'delete' => [
+                        'summary' => 'Delete chat session',
+                        'tags' => ['AI'],
+                        'security' => [['BearerAuth' => []]],
+                        'parameters' => [['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]],
+                        'responses' => [
+                            '200' => ['description' => 'Chat session deleted'],
+                            '401' => ['description' => 'Unauthenticated'],
+                            '404' => ['description' => 'Session not found'],
+                        ],
+                    ],
+                ],
             ],
             'components' => [
                 'securitySchemes' => [
@@ -922,6 +1027,34 @@ class OpenApiController extends Controller
                                 'type' => 'array',
                                 'items' => ['$ref' => '#/components/schemas/Wallet'],
                             ],
+                        ],
+                    ],
+                    'AiCategorizeResponse' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'category_id' => ['type' => 'integer', 'nullable' => true],
+                            'category_name' => ['type' => 'string', 'nullable' => true],
+                            'confidence' => ['type' => 'number', 'example' => 0.95],
+                        ],
+                    ],
+                    'AiInsight' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'title' => ['type' => 'string', 'example' => 'High food spending detected'],
+                            'description' => ['type' => 'string'],
+                            'potential_savings' => ['type' => 'number', 'nullable' => true],
+                            'priority' => ['type' => 'string', 'enum' => ['high', 'medium', 'low']],
+                            'category' => ['type' => 'string', 'enum' => ['spending', 'saving', 'budget', 'income', 'recurring']],
+                        ],
+                    ],
+                    'AiChatSession' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'id' => ['type' => 'integer'],
+                            'title' => ['type' => 'string', 'nullable' => true],
+                            'messages_count' => ['type' => 'integer'],
+                            'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                            'updated_at' => ['type' => 'string', 'format' => 'date-time'],
                         ],
                     ],
                 ],

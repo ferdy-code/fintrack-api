@@ -30,7 +30,7 @@ class DashboardController extends Controller
             ->where('is_active', true)
             ->with('currency')
             ->get()
-            ->sum(fn ($wallet) => (float) $wallet->balance * (float) ($wallet->currency->exchange_rate_to_usd ?? 1));
+            ->sum(fn($wallet) => (float) $wallet->balance);
 
         $totalIncome = (float) Transaction::where('user_id', $user->id)
             ->where('type', TransactionType::Income->value)
@@ -53,8 +53,8 @@ class DashboardController extends Controller
             ->orderByDesc('total')
             ->limit(6)
             ->get()
-            ->filter(fn ($item) => $item->category !== null)
-            ->map(fn ($item) => [
+            ->filter(fn($item) => $item->category !== null)
+            ->map(fn($item) => [
                 'category' => new CategoryResource($item->category),
                 'total' => (float) $item->total,
                 'percentage' => $totalExpense > 0 ? round(((float) $item->total / $totalExpense) * 100, 2) : 0,
@@ -64,7 +64,7 @@ class DashboardController extends Controller
             ->where('is_active', true)
             ->with('category')
             ->get()
-            ->filter(fn ($budget) => $budgetService->checkBudgetAlert($budget))
+            ->filter(fn($budget) => $budgetService->checkBudgetAlert($budget))
             ->values();
 
         $recentTransactions = Transaction::where('user_id', $user->id)
@@ -102,7 +102,7 @@ class DashboardController extends Controller
             ->get();
 
         return $this->successResponse([
-            'total_balance' => round($totalBalance, 2),
+            'total_balance' => $totalBalance,
             'month_summary' => [
                 'income' => $totalIncome,
                 'expense' => $totalExpense,
