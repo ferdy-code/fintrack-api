@@ -89,22 +89,23 @@ class AiController extends Controller
         $sessionId = $session->id;
 
         return response()->eventStream(function () use ($message, $history, $financialContext, $sessionId) {
-            $fullResponse = $this->gemini->chatWithCallback(
+            $result = $this->gemini->chatStream(
                 $message,
                 $history,
                 $financialContext,
-                function ($chunk) {
-                    yield new StreamedEvent(
-                        event: 'chunk',
-                        data: json_encode(['type' => 'chunk', 'content' => $chunk])
-                    );
-                }
             );
+
+            foreach ($result['chunks'] as $chunk) {
+                yield new StreamedEvent(
+                    event: 'chunk',
+                    data: json_encode(['type' => 'chunk', 'content' => $chunk])
+                );
+            }
 
             AiChatMessage::create([
                 'session_id' => $sessionId,
                 'role' => 'model',
-                'content' => $fullResponse,
+                'content' => $result['response'],
                 'created_at' => now(),
             ]);
 

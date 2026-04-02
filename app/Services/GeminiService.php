@@ -206,7 +206,7 @@ PROMPT;
         return $insights;
     }
 
-    public function chatWithCallback(string $message, array $history, array $financialContext, callable $onChunk): string
+    public function chatStream(string $message, array $history, array $financialContext): array
     {
         $systemInstruction = $this->buildSystemInstruction($financialContext);
         $contents = $this->buildChatContents($history, $message);
@@ -225,13 +225,14 @@ PROMPT;
         ]);
 
         $fullResponse = '';
+        $chunks = [];
         $buffer = '';
 
-        $onData = function ($ch, $data) use ($onChunk, &$fullResponse, &$buffer) {
+        $onData = function ($ch, $data) use (&$fullResponse, &$chunks, &$buffer) {
             $buffer .= $data;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line = rtrim(substr($buffer, 0, $pos), "\r");
                 $buffer = substr($buffer, $pos + 1);
 
                 if (! str_starts_with($line, 'data: ')) {
@@ -243,7 +244,7 @@ PROMPT;
                 if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
                     $text = $json['candidates'][0]['content']['parts'][0]['text'];
                     $fullResponse .= $text;
-                    $onChunk($text);
+                    $chunks[] = $text;
                 }
             }
 
@@ -263,7 +264,7 @@ PROMPT;
         curl_exec($ch);
         curl_close($ch);
 
-        return $fullResponse;
+        return ['response' => $fullResponse, 'chunks' => $chunks];
     }
 
     private function callGemini(string $prompt): ?string
