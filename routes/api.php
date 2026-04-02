@@ -4,7 +4,9 @@ use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BudgetController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\OpenApiController;
 use App\Http\Controllers\Api\V1\RecurringTransactionController;
 use App\Http\Controllers\Api\V1\TransactionController;
@@ -26,6 +28,9 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    Route::get('currencies', [CurrencyController::class, 'index']);
+    Route::get('currencies/rates', [CurrencyController::class, 'rates']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('wallets', WalletController::class);
         Route::apiResource('categories', CategoryController::class);
@@ -40,6 +45,10 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('recurring-transactions', RecurringTransactionController::class);
 
         Route::get('/dashboard', [DashboardController::class, 'dashboard']);
+
+        Route::get('export/transactions/csv', [ExportController::class, 'transactionsCsv']);
+        Route::get('export/transactions/pdf', [ExportController::class, 'transactionsPdf']);
+        Route::get('export/report/pdf', [ExportController::class, 'monthlyReportPdf']);
 
         Route::middleware('throttle:ai')->prefix('ai')->group(function () {
             Route::post('/categorize', [AiController::class, 'categorize']);

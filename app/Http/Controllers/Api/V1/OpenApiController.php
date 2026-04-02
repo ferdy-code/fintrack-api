@@ -1057,6 +1057,17 @@ class OpenApiController extends Controller
                             'updated_at' => ['type' => 'string', 'format' => 'date-time'],
                         ],
                     ],
+                    'Currency' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'code' => ['type' => 'string', 'example' => 'IDHR'],
+                            'name' => ['type' => 'string', 'example' => 'Indonesian Rupiah'],
+                            'symbol' => ['type' => 'string', 'example' => 'Rp'],
+                            'decimal_places' => ['type' => 'integer', 'example' => 0],
+                            'exchange_rate_to_usd' => ['type' => 'number', 'example' => 0.0000645161],
+                            'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                        ],
+                    ],
                 ],
             ],
         ];
