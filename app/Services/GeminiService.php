@@ -48,21 +48,25 @@ class GeminiService
         $type = $transactionData['type'];
 
         $prompt = <<<PROMPT
-You are a transaction categorization assistant. Given a transaction, select the most appropriate category from the list below.
+You are a financial transaction categorizer. Given a transaction description
+and merchant name, classify it into one of the provided categories.
+Always respond in Bahasa Indonesia.
 
 Transaction:
-- Description: {$description}
-- Merchant: {$merchant}
+- Description: "{$description}"
+- Merchant: "{$merchant}"
 - Amount: {$amount}
 - Type: {$type}
 
-Available Categories:
+Available categories:
 {$categoryList}
 
-Respond with ONLY a JSON object:
-{"category_id": <id>, "category_name": "<name>", "confidence": <0.0-1.0>}
-
-If no category fits well, set category_id to null and confidence to 0.
+Respond in JSON format only:
+{
+    "category_id": <id>,
+    "category_name": "<name>",
+    "confidence": <0.0-1.0>
+}        
 PROMPT;
 
         $result = $this->callGemini($prompt);
@@ -99,9 +103,10 @@ PROMPT;
             return $cached;
         }
 
+        $period = 30;
         $now = Carbon::now();
-        $last30Start = $now->copy()->subDays(30)->startOfDay();
-        $prev30Start = $now->copy()->subDays(60)->startOfDay();
+        $last30Start = $now->copy()->subDays($period)->startOfDay();
+        $prev30Start = $now->copy()->subDays($period * 2)->startOfDay();
 
         $last30Transactions = Transaction::where('user_id', $user->id)
             ->whereBetween('transaction_date', [$last30Start, $now])
@@ -109,8 +114,8 @@ PROMPT;
             ->groupBy('type', 'category_id')
             ->get();
 
-        $last30Income = (float) $last30Transactions->where('type', TransactionType::Income->value)->sum('total');
-        $last30Expense = (float) $last30Transactions->where('type', TransactionType::Expense->value)->sum('total');
+        $total_income = (float) $last30Transactions->where('type', TransactionType::Income->value)->sum('total');
+        $total_expenses = (float) $last30Transactions->where('type', TransactionType::Expense->value)->sum('total');
 
         $prev30Transactions = Transaction::where('user_id', $user->id)
             ->whereBetween('transaction_date', [$prev30Start, $last30Start])
@@ -120,6 +125,8 @@ PROMPT;
 
         $prev30Income = (float) $prev30Transactions->where('type', TransactionType::Income->value)->sum('total');
         $prev30Expense = (float) $prev30Transactions->where('type', TransactionType::Expense->value)->sum('total');
+
+        $currency = $user->wallets()->where('is_active', true)->first()?->currency_code ?? 'USD';
 
         $categoryBreakdown = $last30Transactions
             ->where('type', TransactionType::Expense->value)
@@ -144,47 +151,63 @@ PROMPT;
             ];
         })->toArray();
 
-        $recurringTotal = $user->recurringTransactions()
+        $recurringExpenses = $user->recurringTransactions()
             ->where('is_active', true)
             ->where('type', TransactionType::Expense->value)
-            ->sum('amount');
+            ->get();
 
-        $net = $last30Income - $last30Expense;
-        $savingsRate = $last30Income > 0 ? round((($last30Income - $last30Expense) / $last30Income) * 100, 1) : 0;
-        $categoryBreakdownStr = $this->formatArray($categoryBreakdown);
-        $budgetUtilizationStr = $this->formatArray($budgetUtilization);
+        $savings_rate = $total_income > 0 ? round((($total_income - $total_expenses) / $total_income) * 100, 1) : 0;
+        $category_breakdown = $this->formatArray($categoryBreakdown);
+        $budget_status = $this->formatArray($budgetUtilization);
+        $recurring_list = $recurringExpenses->isEmpty()
+            ? 'None'
+            : $recurringExpenses->map(function ($r) use ($currency) {
+                $freq = $r->frequency ?? 'N/A';
+
+                return "- {$r->description}: {$r->amount} {$currency} ({$freq})";
+            })->implode("\n");
+
+        $incomeChange = $prev30Income > 0 ? round((($total_income - $prev30Income) / $prev30Income) * 100, 1) : 0;
+        $expenseChange = $prev30Expense > 0 ? round((($total_expenses - $prev30Expense) / $prev30Expense) * 100, 1) : 0;
+        $comparison = "Previous period income: {$prev30Income} {$currency} (change: ".($incomeChange >= 0 ? '+' : '')."{$incomeChange}%)\n";
+        $comparison .= "Previous period expenses: {$prev30Expense} {$currency} (change: ".($expenseChange >= 0 ? '+' : '')."{$expenseChange}%)";
 
         $prompt = <<<PROMPT
-You are a personal finance advisor. Analyze the following financial data and provide 3-5 actionable insights.
+You are a personal financial advisor. Analyze the user's spending data and provide
+actionable savings suggestions. Be specific with numbers and percentages.
+Always respond in Bahasa Indonesia.
 
-User's Financial Summary (Last 30 days):
-- Income: {$last30Income}
-- Expense: {$last30Expense}
-- Net: {$net}
-- Savings Rate: {$savingsRate}%
+User's Financial Data (Last {$period} days):
+- Total Income: {$total_income} {$currency}
+- Total Expenses: {$total_expenses} {$currency}
+- Savings Rate: {$savings_rate}%
 
-Previous 30 days comparison:
-- Income: {$prev30Income}
-- Expense: {$prev30Expense}
+Spending by Category:
+{$category_breakdown}
 
-Top Expense Categories:
-{$categoryBreakdownStr}
+Budget Status:
+{$budget_status}
 
-Active Budgets:
-{$budgetUtilizationStr}
+Recurring Expenses:
+{$recurring_list}
 
-Monthly Recurring Expenses: {$recurringTotal}
+Previous Period Comparison:
+{$comparison}
 
-Respond with ONLY a JSON array of insights:
-[
-  {
-    "title": "Short title",
-    "description": "Detailed explanation with specific numbers",
-    "potential_savings": <number or null>,
-    "priority": "high|medium|low",
-    "category": "spending|saving|budget|income|recurring"
-  }
-]
+Provide 3-5 specific, actionable insights in this JSON format:
+{
+    "insights": [
+        {
+            "title": "Short title",
+            "description": "Detailed explanation with specific numbers",
+            "potential_savings": <amount>,
+            "priority": "high|medium|low",
+            "category": "related category name"
+        }
+    ],
+    "overall_health_score": <1-100>,
+    "summary": "One paragraph overall assessment"
+}
 PROMPT;
 
         $result = $this->callGemini($prompt);
@@ -193,20 +216,18 @@ PROMPT;
             return [];
         }
 
-        $insights = $this->parseJsonResponse($result);
+        $parsed = $this->parseJsonResponse($result);
 
-        if ($insights === null) {
+        if ($parsed === null) {
             return [];
         }
 
-        $insights = is_array($insights) && array_is_list($insights) ? $insights : [$insights];
+        Cache::put($cacheKey, $parsed, 21600);
 
-        Cache::put($cacheKey, $insights, 21600);
-
-        return $insights;
+        return $parsed;
     }
 
-    public function chatWithCallback(string $message, array $history, array $financialContext, callable $onChunk): string
+    public function chatStream(string $message, array $history, array $financialContext): array
     {
         $systemInstruction = $this->buildSystemInstruction($financialContext);
         $contents = $this->buildChatContents($history, $message);
@@ -225,13 +246,14 @@ PROMPT;
         ]);
 
         $fullResponse = '';
+        $chunks = [];
         $buffer = '';
 
-        $onData = function ($ch, $data) use ($onChunk, &$fullResponse, &$buffer) {
+        $onData = function ($ch, $data) use (&$fullResponse, &$chunks, &$buffer) {
             $buffer .= $data;
 
             while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
+                $line = rtrim(substr($buffer, 0, $pos), "\r");
                 $buffer = substr($buffer, $pos + 1);
 
                 if (! str_starts_with($line, 'data: ')) {
@@ -243,7 +265,7 @@ PROMPT;
                 if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
                     $text = $json['candidates'][0]['content']['parts'][0]['text'];
                     $fullResponse .= $text;
-                    $onChunk($text);
+                    $chunks[] = $text;
                 }
             }
 
@@ -263,7 +285,7 @@ PROMPT;
         curl_exec($ch);
         curl_close($ch);
 
-        return $fullResponse;
+        return ['response' => $fullResponse, 'chunks' => $chunks];
     }
 
     private function callGemini(string $prompt): ?string
@@ -333,30 +355,29 @@ PROMPT;
 
     private function buildSystemInstruction(array $context): string
     {
-        $topCategories = $this->formatArray($context['top_categories'] ?? []);
-        $budgets = $this->formatArray($context['budgets'] ?? []);
-        $walletBalances = $this->formatArray($context['wallet_balances'] ?? []);
-        $monthlyIncome = $context['monthly_income'];
-        $monthlyExpense = $context['monthly_expense'];
-        $totalBalance = $context['total_balance'];
+        $currency = $context['currency'] ?? 'USD';
+        $monthly_income = $context['monthly_income'];
+        $monthly_expenses = $context['monthly_expense'];
+        $budgets_summary = $this->formatArray($context['budgets'] ?? []);
+        $top_categories = $this->formatArray($context['top_categories'] ?? []);
+        $wallet_balances = $this->formatArray($context['wallet_balances'] ?? []);
+        $recent_transactions = $this->formatArray($context['recent_transactions'] ?? []);
 
         return <<<PROMPT
-You are FinTrack AI, a personal finance assistant. You help users understand their spending, manage budgets, and make better financial decisions.
+You are FinTrack AI, a friendly and knowledgeable personal financial advisor.
+You have access to the user's financial data summarized below.
+Always reference specific numbers from their data when giving advice.
+Be encouraging but honest. Use the user's currency ({$currency}) for amounts.
+Always respond in Bahasa Indonesia (Indonesian language).
+If asked about something outside personal finance, politely redirect.
 
-User's Financial Context:
-- Monthly Income: {$monthlyIncome}
-- Monthly Expense: {$monthlyExpense}
-- Total Balance: {$totalBalance}
-- Top Categories: {$topCategories}
-- Active Budgets: {$budgets}
-- Wallet Balances: {$walletBalances}
-
-Guidelines:
-- Be concise and actionable
-- Reference specific numbers from the user's data when relevant
-- Suggest practical steps
-- If asked about non-finance topics, politely redirect to finance
-- Always respond in the same language the user uses
+User's Financial Summary:
+- Monthly income: {$monthly_income}
+- Monthly expenses: {$monthly_expenses}
+- Active budgets: {$budgets_summary}
+- Top spending categories: {$top_categories}
+- Wallet balances: {$wallet_balances}
+- Recent transactions: {$recent_transactions}
 PROMPT;
     }
 
