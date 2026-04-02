@@ -201,6 +201,24 @@ class AiController extends Controller
             ->map(fn ($w) => ['name' => $w->name, 'balance' => (float) $w->balance, 'currency' => $w->currency_code])
             ->toArray();
 
+        $recentTransactions = Transaction::where('user_id', $user->id)
+            ->with(['category', 'wallet'])
+            ->orderByDesc('transaction_date')
+            ->limit(10)
+            ->get()
+            ->map(fn ($t) => [
+                'description' => $t->description,
+                'amount' => (float) $t->amount,
+                'type' => $t->type,
+                'category' => $t->category?->name,
+                'date' => $t->transaction_date->format('Y-m-d'),
+            ])
+            ->toArray();
+
+        $currency = Wallet::where('user_id', $user->id)
+            ->where('is_active', true)
+            ->first()?->currency_code ?? 'USD';
+
         return [
             'monthly_income' => $monthlyIncome,
             'monthly_expense' => $monthlyExpense,
@@ -208,6 +226,8 @@ class AiController extends Controller
             'top_categories' => $topCategories,
             'budgets' => $budgets,
             'wallet_balances' => $walletBalances,
+            'recent_transactions' => $recentTransactions,
+            'currency' => $currency,
         ];
     }
 }
